@@ -202,6 +202,67 @@
           <details class="panel panel-details">
             <summary class="panel-summary">
               <div>
+                <h2>USB 打印</h2>
+                <span>WebUSB</span>
+              </div>
+            </summary>
+            <div class="panel-body">
+              <div class="ble-actions">
+                <button type="button" class="filled-button" id="usbConnectButton">连接设备</button>
+                <button type="button" class="tonal-button" id="usbPrintButton">打印当前标签</button>
+                <button type="button" class="outlined-button" id="usbRefreshButton">刷新端点</button>
+                <button type="button" class="text-button" id="usbDisconnectButton">断开</button>
+              </div>
+
+              <div class="info-grid">
+                <div class="info-item">
+                  <span>设备</span>
+                  <strong id="usbDeviceValue">未连接</strong>
+                </div>
+                <div class="info-item">
+                  <span>接口</span>
+                  <strong id="usbInterfaceValue">未选择</strong>
+                </div>
+                <div class="info-item">
+                  <span>端点</span>
+                  <strong id="usbEndpointValue">未选择</strong>
+                </div>
+                <div class="info-item">
+                  <span>状态</span>
+                  <strong id="usbWriteModeValue">未就绪</strong>
+                </div>
+              </div>
+
+              <details class="subpanel">
+                <summary>USB 高级设置</summary>
+                <div class="property-block">
+                  <label>
+                    <span>设备过滤器 JSON</span>
+                    <textarea id="usbFiltersInput" spellcheck="false"></textarea>
+                  </label>
+                  <div class="field-grid field-grid-compact">
+                    <label>
+                      <span>文本编码</span>
+                      <select id="usbEncodingInput">
+                        <option value="utf-8">UTF-8</option>
+                        <option value="gbk">GBK</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>分片大小</span>
+                      <input id="usbChunkSizeInput" type="number" min="32" max="4096" step="1" value="512" />
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <div class="property-note">需要 HTTPS 或 `localhost`，并且浏览器支持 WebUSB。控制台会打印接口和端点枚举日志。</div>
+            </div>
+          </details>
+
+          <details class="panel panel-details">
+            <summary class="panel-summary">
+              <div>
                 <h2>整体偏移</h2>
                 <span>相对移动</span>
               </div>
@@ -231,8 +292,8 @@
             </summary>
             <div class="panel-body">
               <ul class="hint-list">
-                <li>保存工程会写出 JSON 工程文件；导出 TSPL 才会生成标准 TSPL。</li>
-                <li>源码面板默认显示可读的 TSPL；图片块会用 `BITMAPHEX` 编辑扩展表示。</li>
+                <li>保存工程会写出 JSON 工程文件；导出 TSPL 会输出变量已渲染的文本版 `.tspl.txt`。</li>
+                <li>源码面板默认显示可读的 TSPL；图片块会用 `BITMAPHEX` 编辑扩展表示，导出 TSPL 也会保持 `BITMAPHEX` 文本形式。</li>
                 <li>打开工程会恢复纸张、元素和源码草稿；也兼容直接打开 TSPL 并转成工程。</li>
                 <li>GitHub 开源地址：<a href="https://github.com/sintrb/LabelMe" target="_blank" rel="noreferrer">https://github.com/sintrb/LabelMe</a></li>
               </ul>
@@ -241,17 +302,6 @@
         </aside>
 
         <section class="stage-panel">
-          <div class="panel stage-toolbar">
-            <div class="stage-toolbar-group">
-              <label>
-                <span>缩放</span>
-                <input type="range" id="zoomRange" min="0.4" max="2" step="0.1" value="1" />
-              </label>
-              <span class="zoom-pill" id="zoomValue">100%</span>
-            </div>
-            <div class="status-line" id="statusLine">就绪</div>
-          </div>
-
           <section class="panel stage-palette-panel">
             <div class="palette" id="palette">
               <button type="button" class="palette-item" data-kind="text" draggable="true">文字</button>
@@ -274,6 +324,17 @@
                 <span>GAP / 标签间距</span>
               </div>
             </div>
+          </div>
+
+          <div class="panel stage-toolbar">
+            <div class="stage-toolbar-group">
+              <label>
+                <span>缩放</span>
+                <input type="range" id="zoomRange" min="0.4" max="2" step="0.1" value="1" />
+              </label>
+              <span class="zoom-pill" id="zoomValue">100%</span>
+            </div>
+            <div class="status-line" id="statusLine">就绪</div>
           </div>
         </section>
 

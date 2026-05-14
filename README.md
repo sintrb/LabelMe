@@ -8,6 +8,7 @@
 - 支持 **项目文件** 持久化
 - 支持 **变量模板**
 - 支持 **BLE 直连打印**
+- 支持 **USB 直连打印**
 - 支持通过 **远端 `get/set` 接口** 拉取和保存配置
 
 适合做：
@@ -80,6 +81,7 @@
 
 - **设计预览**：使用变量值渲染
 - **BLE 打印**：使用变量值渲染
+- **导出 TSPL 文本**：使用变量值渲染
 - **工程文件 / TSPL 源码**：保留原始占位符，不自动展开
 
 ### BLE 打印
@@ -91,11 +93,23 @@
   - `UTF-8`
   - `GBK`
 
+### USB 打印
+
+- 使用 **WebUSB**
+- 弹出设备选择器
+- 自动枚举 `configuration / interface / alternate / endpoint`
+- 自动选择可写输出端点（优先 `bulk`，其次 `interrupt`）
+- 支持控制台日志输出接口 / 端点枚举过程
+- 支持文本编码切换：
+  - `UTF-8`
+  - `GBK`
+- 支持设备过滤器 JSON
+
 ### 项目文件
 
 - 支持打开 / 保存工程文件（JSON）
 - 支持本地自动恢复（`localStorage`）
-- 支持导出标准 TSPL
+- 支持导出变量已渲染的文本版 TSPL（`.tspl.txt`）
 
 ### 远端配置接口模式
 
@@ -123,7 +137,7 @@ python3 -m http.server 8000
 http://localhost:8000/
 ```
 
-> BLE 打印要求页面运行在 `https://` 或 `http://localhost`
+> BLE / USB 打印要求页面运行在 `https://` 或 `http://localhost`
 
 ---
 
@@ -137,7 +151,7 @@ http://localhost:8000/
 - 支持：
   - 打开工程
   - 保存工程
-  - 导出 TSPL
+  - 导出 TSPL 文本（变量已渲染、图片为 `BITMAPHEX`）
 
 ### 远端接口模式
 
@@ -453,6 +467,82 @@ Content-Type: application/json
 
 ---
 
+## USB 打印说明
+
+### 要求
+
+- 浏览器支持 WebUSB（`navigator.usb`）
+- 页面运行在：
+  - `https://`
+  - 或 `http://localhost`
+
+### 支持项
+
+- 连接 USB 设备
+- 自动发现可写输出端点
+- 控制台打印接口 / 端点枚举日志
+- 自定义设备过滤器 JSON
+- 分片大小
+- 文本编码：
+  - UTF-8
+  - GBK
+
+### 端点选择策略
+
+当前实现会：
+
+1. 枚举设备下全部 `configuration / interface / alternate / endpoint`
+2. 收集所有 `direction === "out"` 的端点
+3. 优先选择：
+   - `bulk`
+   - 其次 `interrupt`
+   - 最后回退到第一个可写端点
+
+### 发送内容
+
+- TSPL 文本命令：按选定编码发送
+- 图片：按标准 `BITMAP` 二进制发送
+
+### 默认过滤器
+
+当前默认 USB 过滤器为：
+
+```json
+[
+  { "classCode": 7 },
+  { "classCode": 255 }
+]
+```
+
+含义：
+
+- `7`：常见打印类设备
+- `255`：厂商自定义类设备（很多标签打印机走这个）
+
+---
+
+## 导出 TSPL 说明
+
+顶部的 **导出 TSPL** 按钮导出的是 **文本版 TSPL**，其行为与 BLE 打印不同：
+
+- 文件后缀：`.tspl.txt`
+- 变量：**会先渲染为实际值**
+- 图片：输出为 `BITMAPHEX ... ENDBITMAPHEX`
+- 导出内容为纯文本，不包含二进制 `BITMAP`
+
+这适合：
+
+- 查看最终展开后的标签内容
+- 保存可读、可传输、可再次加工的 TSPL 文本
+- 给外部系统继续做后处理
+
+而 **BLE 打印** 则仍然使用：
+
+- 文本命令按 UTF-8 / GBK 编码发送
+- 图片按标准 `BITMAP` 二进制发送
+
+---
+
 ## 预览与打印差异说明
 
 浏览器预览字体和打印机字体不可能完全一致，因此：
@@ -511,12 +601,14 @@ TSPL 的 `BITMAP` 命令在标准语义下是：
 
 - 打开真实 `.tspl` 时：解析 `BITMAP` 二进制为图片元素
 - 源码面板里：显示为可读的 `BITMAPHEX`
-- 导出 TSPL 时：再转回标准 `BITMAP` 二进制
+- BLE 打印时：再转回标准 `BITMAP` 二进制
+- 顶部“导出 TSPL”时：保留为 `BITMAPHEX` 文本
 
 因此：
 
 - 编辑体验更好
-- 导出结果仍然是标准 TSPL
+- BLE 打印仍然可以发送标准 `BITMAP` 二进制
+- 顶部“导出 TSPL”则会输出可读的文本版 TSPL
 
 ---
 
@@ -555,6 +647,7 @@ node --test
   - `QRCODE`
 - `raw` 原始 TSPL 块不会自动变量替换
 - BLE 打印依赖浏览器的 Web Bluetooth 支持
+- USB 打印依赖浏览器的 WebUSB 支持
 - 预览字体无法做到与所有打印机字体 100% 完全一致
 
 ---

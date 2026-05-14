@@ -5,7 +5,6 @@ import {
   cloneDocument,
   createEmptyDocument,
   createNode,
-  createSampleDocument,
   extractTemplateVariables,
   generateTsplPayload,
   generateTsplSource,
@@ -26,9 +25,10 @@ import {
 
 const EDITOR_VERSION = "1.0";
 const DEFAULT_PROJECT_NAME = "未命名工程";
+const BUNDLED_SAMPLE_PROJECT_URL = "./demo.labelme.json";
 
 const state = {
-  document: normalizeDocument(createSampleDocument()),
+  document: normalizeDocument(createEmptyDocument()),
   selectedId: null,
   elementClipboard: null,
   warnings: [],
@@ -52,6 +52,13 @@ const state = {
     service: null,
     characteristic: null,
     writeMode: null,
+    connecting: false,
+  },
+  usb: {
+    device: null,
+    interfaceNumber: null,
+    alternateSetting: null,
+    endpointNumber: null,
     connecting: false,
   },
   project: {
@@ -88,6 +95,7 @@ const DEFAULT_BLE_SERVICE_CANDIDATES = [
 ];
 
 const DEFAULT_BLE_SERVICE_TEXT = DEFAULT_BLE_SERVICE_CANDIDATES.join("\n");
+const DEFAULT_USB_FILTERS_TEXT = JSON.stringify([{ classCode: 7 }, { classCode: 255 }], null, 2);
 const LOCAL_EDITOR_STATE_KEY = "labelme:editor-state:v1";
 let persistEditorStateTimer = 0;
 const PAPER_MEASUREMENT_FIELDS = ["width", "height", "gap", "gapOffset"];
@@ -144,6 +152,17 @@ const elements = {
   bleEncodingInput: document.getElementById("bleEncodingInput"),
   bleChunkSizeInput: document.getElementById("bleChunkSizeInput"),
   bleWriteDelayInput: document.getElementById("bleWriteDelayInput"),
+  usbConnectButton: document.getElementById("usbConnectButton"),
+  usbPrintButton: document.getElementById("usbPrintButton"),
+  usbRefreshButton: document.getElementById("usbRefreshButton"),
+  usbDisconnectButton: document.getElementById("usbDisconnectButton"),
+  usbDeviceValue: document.getElementById("usbDeviceValue"),
+  usbInterfaceValue: document.getElementById("usbInterfaceValue"),
+  usbEndpointValue: document.getElementById("usbEndpointValue"),
+  usbWriteModeValue: document.getElementById("usbWriteModeValue"),
+  usbFiltersInput: document.getElementById("usbFiltersInput"),
+  usbEncodingInput: document.getElementById("usbEncodingInput"),
+  usbChunkSizeInput: document.getElementById("usbChunkSizeInput"),
   confirmDialog: document.getElementById("confirmDialog"),
   confirmDialogTitle: document.getElementById("confirmDialogTitle"),
   confirmDialogMessage: document.getElementById("confirmDialogMessage"),
@@ -396,6 +415,11 @@ function buildPersistedEditorState() {
       chunkSize: elements.bleChunkSizeInput.value,
       writeDelay: elements.bleWriteDelayInput.value,
     },
+    usb: {
+      filtersInput: elements.usbFiltersInput.value,
+      encoding: elements.usbEncodingInput.value,
+      chunkSize: elements.usbChunkSizeInput.value,
+    },
   };
 }
 
@@ -476,6 +500,12 @@ function restorePersistedEditorState() {
       elements.bleWriteDelayInput.value = String(persisted.ble.writeDelay ?? "12");
     }
 
+    if (persisted.usb && typeof persisted.usb === "object") {
+      elements.usbFiltersInput.value = String(persisted.usb.filtersInput ?? DEFAULT_USB_FILTERS_TEXT);
+      elements.usbEncodingInput.value = String(persisted.usb.encoding ?? "utf-8");
+      elements.usbChunkSizeInput.value = String(persisted.usb.chunkSize ?? "512");
+    }
+
     if (persisted.sourceDirty && typeof persisted.draftSource === "string" && persisted.draftSource.length > 0) {
       state.sourceDirty = true;
       elements.sourceEditor.value = persisted.draftSource;
@@ -500,8 +530,51 @@ function restorePersistedEditorState() {
   }
 }
 
+function restorePersistedUiPreferences() {
+  if (!canUseLocalStorage()) {
+    return false;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_EDITOR_STATE_KEY);
+    if (!raw) {
+      return false;
+    }
+
+    const persisted = JSON.parse(raw);
+
+    const restoredZoom = Number.parseFloat(persisted.zoom);
+    state.zoom = Number.isFinite(restoredZoom) ? Math.max(0.4, Math.min(2, restoredZoom)) : state.zoom;
+    elements.zoomRange.value = String(state.zoom);
+
+    if (persisted.ble && typeof persisted.ble === "object") {
+      elements.bleNamePrefixInput.value = String(persisted.ble.namePrefix ?? elements.bleNamePrefixInput.value);
+      elements.bleServiceInput.value = String(persisted.ble.serviceInput ?? elements.bleServiceInput.value);
+      elements.bleCharacteristicInput.value = String(persisted.ble.characteristicInput ?? elements.bleCharacteristicInput.value);
+      elements.bleEncodingInput.value = String(persisted.ble.encoding ?? elements.bleEncodingInput.value ?? "utf-8");
+      elements.bleChunkSizeInput.value = String(persisted.ble.chunkSize ?? elements.bleChunkSizeInput.value);
+      elements.bleWriteDelayInput.value = String(persisted.ble.writeDelay ?? elements.bleWriteDelayInput.value);
+    }
+
+    if (persisted.usb && typeof persisted.usb === "object") {
+      elements.usbFiltersInput.value = String(persisted.usb.filtersInput ?? elements.usbFiltersInput.value);
+      elements.usbEncodingInput.value = String(persisted.usb.encoding ?? elements.usbEncodingInput.value ?? "utf-8");
+      elements.usbChunkSizeInput.value = String(persisted.usb.chunkSize ?? elements.usbChunkSizeInput.value);
+    }
+
+    return true;
+  } catch (error) {
+    console.log("[storage] failed to restore UI preferences", error);
+    return false;
+  }
+}
+
 function canUseBluetooth() {
   return typeof navigator !== "undefined" && "bluetooth" in navigator;
+}
+
+function canUseUsb() {
+  return typeof navigator !== "undefined" && "usb" in navigator;
 }
 
 function sleep(milliseconds) {
@@ -587,6 +660,30 @@ function renderBleStatus() {
   elements.bleDisconnectButton.disabled = connecting || !device || !device.gatt?.connected;
 }
 
+function renderUsbStatus() {
+  if (!canUseUsb()) {
+    elements.usbDeviceValue.textContent = "当前浏览器不支持";
+    elements.usbInterfaceValue.textContent = "不可用";
+    elements.usbEndpointValue.textContent = "不可用";
+    elements.usbWriteModeValue.textContent = "不可用";
+    elements.usbConnectButton.disabled = true;
+    elements.usbPrintButton.disabled = true;
+    elements.usbRefreshButton.disabled = true;
+    elements.usbDisconnectButton.disabled = true;
+    return;
+  }
+
+  const { device, interfaceNumber, endpointNumber, connecting } = state.usb;
+  elements.usbDeviceValue.textContent = device?.productName || "未连接";
+  elements.usbInterfaceValue.textContent = interfaceNumber === null ? "未选择" : String(interfaceNumber);
+  elements.usbEndpointValue.textContent = endpointNumber === null ? "未选择" : String(endpointNumber);
+  elements.usbWriteModeValue.textContent = connecting ? "连接中" : endpointNumber === null ? "未就绪" : "已就绪";
+  elements.usbConnectButton.disabled = connecting;
+  elements.usbPrintButton.disabled = connecting;
+  elements.usbRefreshButton.disabled = connecting || !device?.opened;
+  elements.usbDisconnectButton.disabled = connecting || !device?.opened;
+}
+
 function clearBleSelection() {
   state.ble.device = null;
   state.ble.server = null;
@@ -595,6 +692,15 @@ function clearBleSelection() {
   state.ble.writeMode = null;
   state.ble.connecting = false;
   renderBleStatus();
+}
+
+function clearUsbSelection() {
+  state.usb.device = null;
+  state.usb.interfaceNumber = null;
+  state.usb.alternateSetting = null;
+  state.usb.endpointNumber = null;
+  state.usb.connecting = false;
+  renderUsbStatus();
 }
 
 function handleBleDisconnected() {
@@ -782,6 +888,19 @@ function getBleServiceCandidates() {
   return values.length > 0 ? values : parseBluetoothIdentifierList(DEFAULT_BLE_SERVICE_CANDIDATES.join("\n"));
 }
 
+function getUsbDeviceFilters() {
+  const raw = elements.usbFiltersInput.value.trim();
+  if (!raw) {
+    return JSON.parse(DEFAULT_USB_FILTERS_TEXT);
+  }
+
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("USB 过滤器必须是非空 JSON 数组");
+  }
+  return parsed;
+}
+
 function getPreferredBleCharacteristic() {
   return parseBluetoothIdentifier(elements.bleCharacteristicInput.value);
 }
@@ -928,6 +1047,64 @@ async function discoverWritableCharacteristic(server) {
   return selected;
 }
 
+function findWritableUsbEndpoints(device) {
+  const matches = [];
+  for (const configuration of device.configurations ?? []) {
+    for (const iface of configuration.interfaces ?? []) {
+      for (const alternate of iface.alternates ?? []) {
+        for (const endpoint of alternate.endpoints ?? []) {
+          console.log(
+            "[USB] endpoint",
+            {
+              configurationValue: configuration.configurationValue,
+              interfaceNumber: iface.interfaceNumber,
+              alternateSetting: alternate.alternateSetting,
+              direction: endpoint.direction,
+              type: endpoint.type,
+              endpointNumber: endpoint.endpointNumber,
+              packetSize: endpoint.packetSize,
+            },
+          );
+          if (endpoint.direction === "out") {
+            matches.push({
+              configurationValue: configuration.configurationValue,
+              interfaceNumber: iface.interfaceNumber,
+              alternateSetting: alternate.alternateSetting,
+              endpointNumber: endpoint.endpointNumber,
+              type: endpoint.type,
+            });
+          }
+        }
+      }
+    }
+  }
+  return matches;
+}
+
+async function selectWritableUsbEndpoint(device) {
+  const matches = findWritableUsbEndpoints(device);
+  if (matches.length === 0) {
+    throw new Error("没有找到可写的 USB 输出端点，请查看控制台日志。");
+  }
+
+  const preferred =
+    matches.find((entry) => entry.type === "bulk") ??
+    matches.find((entry) => entry.type === "interrupt") ??
+    matches[0];
+
+  console.log("[USB] selected writable endpoint", preferred);
+
+  if (device.configuration?.configurationValue !== preferred.configurationValue) {
+    await device.selectConfiguration(preferred.configurationValue);
+  }
+  await device.claimInterface(preferred.interfaceNumber);
+  if (preferred.alternateSetting !== undefined) {
+    await device.selectAlternateInterface(preferred.interfaceNumber, preferred.alternateSetting);
+  }
+
+  return preferred;
+}
+
 function buildBluetoothRequestOptions() {
   const optionalServices = getBleServiceCandidates();
   const namePrefix = elements.bleNamePrefixInput.value.trim();
@@ -1024,6 +1201,154 @@ function disconnectBlePrinter() {
   } else {
     clearBleSelection();
     setStatus("BLE 已断开");
+  }
+}
+
+async function connectUsbPrinter() {
+  if (!canUseUsb()) {
+    setStatus("当前浏览器不支持 WebUSB");
+    return null;
+  }
+
+  state.usb.connecting = true;
+  renderUsbStatus();
+
+  try {
+    const filters = getUsbDeviceFilters();
+    console.log("[USB] requestDevice filters", filters);
+    const device = await navigator.usb.requestDevice({ filters });
+    if (!device.opened) {
+      await device.open();
+    }
+    state.usb.device = device;
+    state.usb.interfaceNumber = null;
+    state.usb.alternateSetting = null;
+    state.usb.endpointNumber = null;
+    setStatus(`已连接 ${device.productName || "USB 设备"}，正在枚举端点…`);
+    renderUsbStatus();
+
+    console.log("[USB] connected device", {
+      manufacturerName: device.manufacturerName || "",
+      productName: device.productName || "",
+      vendorId: device.vendorId,
+      productId: device.productId,
+      serialNumber: device.serialNumber || "",
+    });
+
+    const selection = await selectWritableUsbEndpoint(device);
+    state.usb.interfaceNumber = selection.interfaceNumber;
+    state.usb.alternateSetting = selection.alternateSetting;
+    state.usb.endpointNumber = selection.endpointNumber;
+    setStatus(`已连接 ${device.productName || "USB 设备"}，找到可写端点`);
+    return selection;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`USB 连接失败: ${message}`);
+    if (!state.usb.device?.opened) {
+      clearUsbSelection();
+    }
+    return null;
+  } finally {
+    state.usb.connecting = false;
+    renderUsbStatus();
+  }
+}
+
+async function refreshUsbSelection() {
+  if (!state.usb.device?.opened) {
+    setStatus("当前没有已连接的 USB 设备");
+    return;
+  }
+
+  state.usb.connecting = true;
+  renderUsbStatus();
+  try {
+    const selection = await selectWritableUsbEndpoint(state.usb.device);
+    state.usb.interfaceNumber = selection.interfaceNumber;
+    state.usb.alternateSetting = selection.alternateSetting;
+    state.usb.endpointNumber = selection.endpointNumber;
+    setStatus("已刷新 USB 可写端点");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`刷新 USB 端点失败: ${message}`);
+  } finally {
+    state.usb.connecting = false;
+    renderUsbStatus();
+  }
+}
+
+async function disconnectUsbPrinter() {
+  try {
+    if (state.usb.device?.opened) {
+      if (state.usb.interfaceNumber !== null) {
+        try {
+          await state.usb.device.releaseInterface(state.usb.interfaceNumber);
+        } catch (error) {
+          console.log("[USB] releaseInterface failed", error);
+        }
+      }
+      await state.usb.device.close();
+    }
+  } catch (error) {
+    console.log("[USB] disconnect failed", error);
+  } finally {
+    clearUsbSelection();
+    setStatus("USB 已断开");
+  }
+}
+
+async function ensureUsbEndpoint() {
+  if (state.usb.device?.opened && state.usb.endpointNumber !== null) {
+    return state.usb.endpointNumber;
+  }
+  const selection = await connectUsbPrinter();
+  return selection?.endpointNumber ?? null;
+}
+
+async function printCurrentLabelViaUsb() {
+  if (state.sourceDirty) {
+    const applied = applySourceToDocument();
+    if (!applied) {
+      return;
+    }
+  }
+
+  const endpointNumber = await ensureUsbEndpoint();
+  if (endpointNumber === null || !state.usb.device) {
+    return;
+  }
+
+  const textEncoding = elements.usbEncodingInput.value || "utf-8";
+  const chunkSize = Math.max(32, Math.min(4096, Number.parseInt(elements.usbChunkSizeInput.value, 10) || 512));
+
+  state.usb.connecting = true;
+  renderUsbStatus();
+
+  try {
+    const renderedDocument = renderDocumentWithVariables(state.document, state.variables);
+    const payload = generateTsplPayload(renderedDocument, { textEncoding });
+    for (let offset = 0; offset < payload.length; offset += chunkSize) {
+      const chunk = payload.slice(offset, offset + chunkSize);
+      const result = await state.usb.device.transferOut(endpointNumber, chunk);
+      console.log("[USB] transferOut", {
+        endpointNumber,
+        offset,
+        length: chunk.length,
+        status: result.status,
+        bytesWritten: result.bytesWritten,
+      });
+      if (result.status !== "ok") {
+        throw new Error(`transferOut status=${result.status}`);
+      }
+    }
+
+    setStatus(`已通过 USB 发送 ${payload.length} 字节（${textEncoding.toUpperCase()}）`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`USB 打印失败: ${message}`);
+  } finally {
+    state.usb.connecting = false;
+    renderUsbStatus();
   }
 }
 
@@ -1211,10 +1536,11 @@ async function saveTspl() {
     }
   }
 
-  const payload = generateTsplPayload(state.document);
-  const blob = new Blob([payload], { type: "application/octet-stream" });
-  downloadBlob(blob, createProjectDownloadName(state.project.name, ".tspl"));
-  setStatus("TSPL 已导出");
+  const renderedDocument = renderDocumentWithVariables(state.document, state.variables);
+  const source = generateTsplSource(renderedDocument);
+  const blob = new Blob([source], { type: "text/plain;charset=utf-8" });
+  downloadBlob(blob, createProjectDownloadName(state.project.name, ".tspl.txt"));
+  setStatus("TSPL 文本已导出");
 }
 
 async function openWorkspaceFile(file) {
@@ -1566,6 +1892,39 @@ async function loadRemoteProjectFile() {
   setStatus("已从远端加载配置");
 }
 
+async function loadBundledSampleProject() {
+  const response = await fetch(BUNDLED_SAMPLE_PROJECT_URL, {
+    method: "GET",
+  });
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}${responseText ? `: ${responseText}` : ""}`);
+  }
+
+  let payload = null;
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch (error) {
+    throw new Error("示例工程不是有效的 JSON");
+  }
+
+  const projectFile = parseProjectFile(payload);
+  applyLoadedProjectState({
+    document: projectFile.document,
+    warnings: [],
+    sourceText: projectFile.sourceText,
+    sourceDirty: projectFile.sourceDirty,
+    variables: projectFile.variables,
+    project: {
+      name: projectFile.name || "示例工程",
+      created: projectFile.created,
+      modified: projectFile.modified,
+    },
+  });
+  setStatus("已加载示例");
+}
+
 function updatePaperUnit(value) {
   updateDocument((document) => {
     const nextUnit = normalizePaperUnit(value);
@@ -1779,7 +2138,7 @@ function renderLayers() {
   if (state.document.nodes.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "还没有元素。把左侧元素拖到画布即可。";
+    empty.textContent = "还没有元素。把上方元素拖到画布即可。";
     elements.layerList.append(empty);
     return;
   }
@@ -2410,6 +2769,7 @@ function render() {
   renderLayers();
   renderProperties();
   renderBleStatus();
+  renderUsbStatus();
   elements.zoomValue.textContent = `${Math.round(state.zoom * 100)}%`;
 
   const existingWarnings = elements.propertiesPanel.querySelector(".warning-list");
@@ -2589,6 +2949,22 @@ function wireEvents() {
     printCurrentLabelViaBle();
   });
 
+  elements.usbConnectButton.addEventListener("click", () => {
+    connectUsbPrinter();
+  });
+
+  elements.usbRefreshButton.addEventListener("click", () => {
+    refreshUsbSelection();
+  });
+
+  elements.usbDisconnectButton.addEventListener("click", () => {
+    disconnectUsbPrinter();
+  });
+
+  elements.usbPrintButton.addEventListener("click", () => {
+    printCurrentLabelViaUsb();
+  });
+
   elements.addVariableButton.addEventListener("click", () => {
     addVariable();
   });
@@ -2603,12 +2979,10 @@ function wireEvents() {
   });
 
   elements.loadSampleButton.addEventListener("click", () => {
-    state.project = createProjectState({ name: "示例工程" });
-    state.variables = [];
-    state.sourceDirty = false;
-    setDocument(createSampleDocument(), [], false);
-    renderVariablesPanel();
-    setStatus("已加载示例");
+    loadBundledSampleProject().catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`加载示例失败: ${message}`);
+    });
   });
 
   elements.openFileButton.addEventListener("click", () => {
@@ -2657,6 +3031,9 @@ function wireEvents() {
     elements.bleEncodingInput,
     elements.bleChunkSizeInput,
     elements.bleWriteDelayInput,
+    elements.usbFiltersInput,
+    elements.usbEncodingInput,
+    elements.usbChunkSizeInput,
   ]) {
     input.addEventListener("input", () => {
       schedulePersistEditorState();
@@ -2756,11 +3133,14 @@ async function initializeApp() {
   elements.remoteSaveButton.hidden = !hasRemoteSetEndpoint();
 
   elements.bleServiceInput.value = DEFAULT_BLE_SERVICE_TEXT;
+  elements.usbFiltersInput.value = DEFAULT_USB_FILTERS_TEXT;
   wireEvents();
 
   if (hasRemoteGetEndpoint()) {
     try {
       await loadRemoteProjectFile();
+      restorePersistedUiPreferences();
+      render();
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -2769,9 +3149,17 @@ async function initializeApp() {
   }
 
   if (!restorePersistedEditorState()) {
-    syncSourceFromDocument(true);
-    render();
-    renderVariablesPanel();
+    try {
+      await loadBundledSampleProject();
+      restorePersistedUiPreferences();
+      render();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      syncSourceFromDocument(true);
+      render();
+      renderVariablesPanel();
+      setStatus(`加载示例失败: ${message}`);
+    }
   }
 }
 
