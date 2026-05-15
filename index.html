@@ -37,8 +37,7 @@
           <details class="panel panel-details">
             <summary class="panel-summary">
               <div>
-                <h2>纸张</h2>
-                <span>常用项收起，按需展开</span>
+                <h2>纸张 <span class="panel-count-badge" id="paperPanelBadge"></span></h2>
               </div>
             </summary>
             <div class="panel-body">
@@ -111,11 +110,10 @@
             </div>
           </details>
 
-          <details class="panel panel-details" open>
+          <details class="panel panel-details">
             <summary class="panel-summary">
               <div>
-                <h2>变量</h2>
-                <span>预览与打印会渲染变量</span>
+                <h2>变量 <span class="panel-count-badge" id="variablesPanelBadge"></span></h2>
               </div>
             </summary>
             <div class="panel-body">
@@ -128,158 +126,71 @@
           <details class="panel panel-details">
             <summary class="panel-summary">
               <div>
-                <h2>BLE 打印</h2>
-                <span>Web Bluetooth</span>
+                <h2>打印机 <span class="panel-count-badge" id="printerPanelBadge"></span></h2>
               </div>
             </summary>
             <div class="panel-body">
-              <div class="ble-actions">
-                <button type="button" class="filled-button" id="bleConnectButton">连接设备</button>
-                <button type="button" class="tonal-button" id="blePrintButton">打印当前标签</button>
-                <button type="button" class="outlined-button" id="bleRefreshButton">刷新端口</button>
-                <button type="button" class="text-button" id="bleDisconnectButton">断开</button>
-              </div>
-
-              <div class="info-grid">
-                <div class="info-item">
-                  <span>设备</span>
-                  <strong id="bleDeviceValue">未连接</strong>
-                </div>
-                <div class="info-item">
-                  <span>服务</span>
-                  <strong id="bleServiceValue">未选择</strong>
-                </div>
-                <div class="info-item">
-                  <span>特征</span>
-                  <strong id="bleCharacteristicValue">未选择</strong>
-                </div>
-                <div class="info-item">
-                  <span>写入方式</span>
-                  <strong id="bleWriteModeValue">未就绪</strong>
-                </div>
-              </div>
-
               <label>
-                <span>设备名前缀</span>
-                <input id="bleNamePrefixInput" type="text" placeholder="可选，例如 MPT、Printer" />
+                <span>打印机类型</span>
+                <select id="printerTypeInput"></select>
               </label>
 
-              <details class="subpanel">
-                <summary>BLE 高级设置</summary>
-                <div class="property-block">
-                  <label>
-                    <span>候选服务 UUID</span>
-                    <textarea id="bleServiceInput" spellcheck="false"></textarea>
-                  </label>
-                  <label>
-                    <span>优先特征 UUID</span>
-                    <input id="bleCharacteristicInput" type="text" placeholder="可选，留空则自动选择首个可写特征" />
-                  </label>
-                  <label>
-                    <span>文本编码</span>
-                    <select id="bleEncodingInput">
-                      <option value="utf-8">UTF-8</option>
-                      <option value="gbk">GBK</option>
-                    </select>
-                  </label>
-                  <div class="field-grid field-grid-compact">
-                    <label>
-                      <span>分片大小</span>
-                      <input id="bleChunkSizeInput" type="number" min="20" max="512" step="1" value="180" />
-                    </label>
-                    <label>
-                      <span>分片延迟 ms</span>
-                      <input id="bleWriteDelayInput" type="number" min="0" max="500" step="1" value="12" />
-                    </label>
-                  </div>
-                </div>
-              </details>
+              <div class="ble-actions" id="printerActionList"></div>
+              <div class="info-grid" id="printerInfoList"></div>
+              <div class="property-block" id="printerArgumentList"></div>
 
-              <div class="property-note">需要 HTTPS 或 `localhost`。如果打印机使用自定义服务 UUID，请把它补到候选服务列表。</div>
+              <div id="printerOutputBlock" hidden>
+                <label>
+                  <span>测试打印机输出</span>
+                  <textarea id="printerOutput" spellcheck="false" readonly></textarea>
+                </label>
+              </div>
+
+              <div class="property-note">BLE / USB 需要 HTTPS 或 `localhost`，并依赖浏览器对 Web Bluetooth / WebUSB 的支持。Test 打印机会直接输出渲染后的 TSPL 文本。</div>
+            </div>
+          </details>
+
+          <details class="panel panel-details" open>
+            <summary class="panel-summary">
+              <div>
+                <h2>打印 <span class="panel-count-badge" id="printPanelCountBadge">0</span></h2>
+              </div>
+            </summary>
+            <div class="panel-body">
+              <div class="inline-row print-row">
+                <label>
+                  <span>次数</span>
+                  <input id="printCopiesInput" type="number" min="1" max="999" step="1" value="1" />
+                </label>
+                <button type="button" class="filled-button" id="printButton">开始打印</button>
+              </div>
+              <div class="property-note">打印时会先渲染变量，再交给当前打印机类型处理发送或输出。</div>
             </div>
           </details>
 
           <details class="panel panel-details">
             <summary class="panel-summary">
               <div>
-                <h2>USB 打印</h2>
-                <span>WebUSB</span>
+                <h2>工具箱</h2>
               </div>
             </summary>
             <div class="panel-body">
-              <div class="ble-actions">
-                <button type="button" class="filled-button" id="usbConnectButton">连接设备</button>
-                <button type="button" class="tonal-button" id="usbPrintButton">打印当前标签</button>
-                <button type="button" class="outlined-button" id="usbRefreshButton">刷新端点</button>
-                <button type="button" class="text-button" id="usbDisconnectButton">断开</button>
-              </div>
-
-              <div class="info-grid">
-                <div class="info-item">
-                  <span>设备</span>
-                  <strong id="usbDeviceValue">未连接</strong>
-                </div>
-                <div class="info-item">
-                  <span>接口</span>
-                  <strong id="usbInterfaceValue">未选择</strong>
-                </div>
-                <div class="info-item">
-                  <span>端点</span>
-                  <strong id="usbEndpointValue">未选择</strong>
-                </div>
-                <div class="info-item">
-                  <span>状态</span>
-                  <strong id="usbWriteModeValue">未就绪</strong>
-                </div>
-              </div>
-
-              <details class="subpanel">
-                <summary>USB 高级设置</summary>
+              <details class="subpanel" open>
+                <summary>整体偏移</summary>
                 <div class="property-block">
-                  <label>
-                    <span>设备过滤器 JSON</span>
-                    <textarea id="usbFiltersInput" spellcheck="false"></textarea>
-                  </label>
-                  <div class="field-grid field-grid-compact">
+                  <div class="inline-row compact-tool-row" id="bulkOffsetSettings">
                     <label>
-                      <span>文本编码</span>
-                      <select id="usbEncodingInput">
-                        <option value="utf-8">UTF-8</option>
-                        <option value="gbk">GBK</option>
-                      </select>
+                      <span>X</span>
+                      <input type="number" name="dx" step="1" value="0" />
                     </label>
                     <label>
-                      <span>分片大小</span>
-                      <input id="usbChunkSizeInput" type="number" min="32" max="4096" step="1" value="512" />
+                      <span>Y</span>
+                      <input type="number" name="dy" step="1" value="0" />
                     </label>
+                    <button type="button" class="tonal-button" id="applyBulkOffsetButton">应用</button>
                   </div>
                 </div>
               </details>
-
-              <div class="property-note">需要 HTTPS 或 `localhost`，并且浏览器支持 WebUSB。控制台会打印接口和端点枚举日志。</div>
-            </div>
-          </details>
-
-          <details class="panel panel-details">
-            <summary class="panel-summary">
-              <div>
-                <h2>整体偏移</h2>
-                <span>相对移动</span>
-              </div>
-            </summary>
-            <div class="panel-body">
-              <div class="field-grid field-grid-compact" id="bulkOffsetSettings">
-                <label>
-                  <span>偏移 X</span>
-                  <input type="number" name="dx" step="1" value="0" />
-                </label>
-                <label>
-                  <span>偏移 Y</span>
-                  <input type="number" name="dy" step="1" value="0" />
-                </label>
-              </div>
-              <button type="button" class="tonal-button" id="applyBulkOffsetButton">应用到所有可视元素</button>
-              <div class="property-note">原始 TSPL 块不会自动改坐标。</div>
             </div>
           </details>
 
@@ -287,7 +198,6 @@
             <summary class="panel-summary">
               <div>
                 <h2>说明</h2>
-                <span>打开时展开</span>
               </div>
             </summary>
             <div class="panel-body">
@@ -342,8 +252,7 @@
           <details class="panel panel-details" open>
             <summary class="panel-summary">
               <div>
-                <h2>图层</h2>
-                <span>拖拽定位后可在这里调整顺序</span>
+                <h2>图层 <span class="panel-count-badge" id="layerPanelBadge"></span></h2>
               </div>
             </summary>
             <div class="panel-body">
@@ -355,7 +264,6 @@
             <summary class="panel-summary">
               <div>
                 <h2>元素属性</h2>
-                <span>常用项优先显示</span>
               </div>
             </summary>
             <div class="panel-body">
@@ -367,7 +275,6 @@
             <summary class="panel-summary">
               <div>
                 <h2>TSPL 源码</h2>
-                <span id="warningBadge"></span>
               </div>
             </summary>
             <div class="panel-body">

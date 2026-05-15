@@ -22,6 +22,7 @@ import {
   scaleBitmap,
   summarizeNode,
 } from "./tspl-core.mjs";
+import { BLEPrinter, TestPrinter, USBPrinter } from "./printers/index.mjs";
 
 const EDITOR_VERSION = "1.0";
 const DEFAULT_PROJECT_NAME = "未命名工程";
@@ -36,6 +37,11 @@ const state = {
   zoom: 1,
   pendingImagePlacement: { x: 24, y: 24 },
   variables: [],
+  printer: {
+    type: "ble",
+    copies: 1,
+    printCount: 0,
+  },
   remoteConfig: {
     getEndpoint: "",
     setEndpoint: "",
@@ -66,6 +72,7 @@ const state = {
     created: null,
     modified: null,
   },
+  printersReady: false,
 };
 
 const TEXT_FONT_OPTIONS = [
@@ -115,12 +122,25 @@ const elements = {
   layerList: document.getElementById("layerList"),
   propertiesPanel: document.getElementById("propertiesPanel"),
   sourceEditor: document.getElementById("sourceEditor"),
-  warningBadge: document.getElementById("warningBadge"),
   statusLine: document.getElementById("statusLine"),
+  paperPanelBadge: document.getElementById("paperPanelBadge"),
+  variablesPanelBadge: document.getElementById("variablesPanelBadge"),
+  printerPanelBadge: document.getElementById("printerPanelBadge"),
+  layerPanelBadge: document.getElementById("layerPanelBadge"),
+  printPanelCountBadge: document.getElementById("printPanelCountBadge"),
   projectNameInput: document.getElementById("projectNameInput"),
   paperUnitInput: document.getElementById("paperUnitInput"),
   variablesList: document.getElementById("variablesList"),
   addVariableButton: document.getElementById("addVariableButton"),
+  printerTypeInput: document.getElementById("printerTypeInput"),
+  printerActionList: document.getElementById("printerActionList"),
+  printerInfoList: document.getElementById("printerInfoList"),
+  printerArgumentList: document.getElementById("printerArgumentList"),
+  printerOutputBlock: document.getElementById("printerOutputBlock"),
+  printerOutput: document.getElementById("printerOutput"),
+  printCopiesInput: document.getElementById("printCopiesInput"),
+  printPanelTitle: document.getElementById("printPanelTitle"),
+  printButton: document.getElementById("printButton"),
   zoomRange: document.getElementById("zoomRange"),
   zoomValue: document.getElementById("zoomValue"),
   openFileButton: document.getElementById("openFileButton"),
@@ -138,39 +158,34 @@ const elements = {
   canvasDropHint: document.getElementById("canvasDropHint"),
   bulkOffsetSettings: document.getElementById("bulkOffsetSettings"),
   applyBulkOffsetButton: document.getElementById("applyBulkOffsetButton"),
-  bleConnectButton: document.getElementById("bleConnectButton"),
-  blePrintButton: document.getElementById("blePrintButton"),
-  bleRefreshButton: document.getElementById("bleRefreshButton"),
-  bleDisconnectButton: document.getElementById("bleDisconnectButton"),
-  bleDeviceValue: document.getElementById("bleDeviceValue"),
-  bleServiceValue: document.getElementById("bleServiceValue"),
-  bleCharacteristicValue: document.getElementById("bleCharacteristicValue"),
-  bleWriteModeValue: document.getElementById("bleWriteModeValue"),
-  bleNamePrefixInput: document.getElementById("bleNamePrefixInput"),
-  bleServiceInput: document.getElementById("bleServiceInput"),
-  bleCharacteristicInput: document.getElementById("bleCharacteristicInput"),
-  bleEncodingInput: document.getElementById("bleEncodingInput"),
-  bleChunkSizeInput: document.getElementById("bleChunkSizeInput"),
-  bleWriteDelayInput: document.getElementById("bleWriteDelayInput"),
-  usbConnectButton: document.getElementById("usbConnectButton"),
-  usbPrintButton: document.getElementById("usbPrintButton"),
-  usbRefreshButton: document.getElementById("usbRefreshButton"),
-  usbDisconnectButton: document.getElementById("usbDisconnectButton"),
-  usbDeviceValue: document.getElementById("usbDeviceValue"),
-  usbInterfaceValue: document.getElementById("usbInterfaceValue"),
-  usbEndpointValue: document.getElementById("usbEndpointValue"),
-  usbWriteModeValue: document.getElementById("usbWriteModeValue"),
-  usbFiltersInput: document.getElementById("usbFiltersInput"),
-  usbEncodingInput: document.getElementById("usbEncodingInput"),
-  usbChunkSizeInput: document.getElementById("usbChunkSizeInput"),
   confirmDialog: document.getElementById("confirmDialog"),
   confirmDialogTitle: document.getElementById("confirmDialogTitle"),
   confirmDialogMessage: document.getElementById("confirmDialogMessage"),
   confirmDialogConfirmButton: document.getElementById("confirmDialogConfirmButton"),
 };
 
+const printerRegistry = {
+  ble: new BLEPrinter({ onStatus: setStatus }),
+  usb: new USBPrinter({ onStatus: setStatus }),
+  test: new TestPrinter({ onStatus: setStatus, outputElement: elements.printerOutput }),
+};
+
+for (const printer of Object.values(printerRegistry)) {
+  printer.onStateChange = () => {
+    if (!state.printersReady) {
+      return;
+    }
+    render();
+    schedulePersistEditorState();
+  };
+}
+
 function selectedNode() {
   return state.document.nodes.find((node) => node.id === state.selectedId) ?? null;
+}
+
+function currentPrinter() {
+  return printerRegistry[state.printer.type] ?? printerRegistry.ble;
 }
 
 function ensureSelection() {
@@ -407,18 +422,13 @@ function buildPersistedEditorState() {
     draftSource: state.sourceDirty ? elements.sourceEditor.value : "",
     zoom: state.zoom,
     project: { ...state.project },
-    ble: {
-      namePrefix: elements.bleNamePrefixInput.value,
-      serviceInput: elements.bleServiceInput.value,
-      characteristicInput: elements.bleCharacteristicInput.value,
-      encoding: elements.bleEncodingInput.value,
-      chunkSize: elements.bleChunkSizeInput.value,
-      writeDelay: elements.bleWriteDelayInput.value,
-    },
-    usb: {
-      filtersInput: elements.usbFiltersInput.value,
-      encoding: elements.usbEncodingInput.value,
-      chunkSize: elements.usbChunkSizeInput.value,
+    printer: {
+      type: state.printer.type,
+      copies: state.printer.copies,
+      printCount: state.printer.printCount,
+      arguments: Object.fromEntries(
+        Object.entries(printerRegistry).map(([key, printer]) => [key, printer.exportArguments()]),
+      ),
     },
   };
 }
@@ -491,19 +501,16 @@ function restorePersistedEditorState() {
     state.zoom = Number.isFinite(restoredZoom) ? Math.max(0.4, Math.min(2, restoredZoom)) : 1;
     elements.zoomRange.value = String(state.zoom);
 
-    if (persisted.ble && typeof persisted.ble === "object") {
-      elements.bleNamePrefixInput.value = String(persisted.ble.namePrefix ?? "");
-      elements.bleServiceInput.value = String(persisted.ble.serviceInput ?? DEFAULT_BLE_SERVICE_TEXT);
-      elements.bleCharacteristicInput.value = String(persisted.ble.characteristicInput ?? "");
-      elements.bleEncodingInput.value = String(persisted.ble.encoding ?? "utf-8");
-      elements.bleChunkSizeInput.value = String(persisted.ble.chunkSize ?? "180");
-      elements.bleWriteDelayInput.value = String(persisted.ble.writeDelay ?? "12");
-    }
-
-    if (persisted.usb && typeof persisted.usb === "object") {
-      elements.usbFiltersInput.value = String(persisted.usb.filtersInput ?? DEFAULT_USB_FILTERS_TEXT);
-      elements.usbEncodingInput.value = String(persisted.usb.encoding ?? "utf-8");
-      elements.usbChunkSizeInput.value = String(persisted.usb.chunkSize ?? "512");
+    if (persisted.printer && typeof persisted.printer === "object") {
+      state.printer.type = String(persisted.printer.type || state.printer.type);
+      state.printer.copies = Number.parseInt(persisted.printer.copies, 10) || 1;
+      state.printer.printCount = Math.max(0, Number.parseInt(persisted.printer.printCount, 10) || 0);
+      const argumentsByType = persisted.printer.arguments ?? {};
+      for (const [type, printer] of Object.entries(printerRegistry)) {
+        if (argumentsByType[type] && typeof argumentsByType[type] === "object") {
+          printer.loadArguments(argumentsByType[type]);
+        }
+      }
     }
 
     if (persisted.sourceDirty && typeof persisted.draftSource === "string" && persisted.draftSource.length > 0) {
@@ -547,19 +554,16 @@ function restorePersistedUiPreferences() {
     state.zoom = Number.isFinite(restoredZoom) ? Math.max(0.4, Math.min(2, restoredZoom)) : state.zoom;
     elements.zoomRange.value = String(state.zoom);
 
-    if (persisted.ble && typeof persisted.ble === "object") {
-      elements.bleNamePrefixInput.value = String(persisted.ble.namePrefix ?? elements.bleNamePrefixInput.value);
-      elements.bleServiceInput.value = String(persisted.ble.serviceInput ?? elements.bleServiceInput.value);
-      elements.bleCharacteristicInput.value = String(persisted.ble.characteristicInput ?? elements.bleCharacteristicInput.value);
-      elements.bleEncodingInput.value = String(persisted.ble.encoding ?? elements.bleEncodingInput.value ?? "utf-8");
-      elements.bleChunkSizeInput.value = String(persisted.ble.chunkSize ?? elements.bleChunkSizeInput.value);
-      elements.bleWriteDelayInput.value = String(persisted.ble.writeDelay ?? elements.bleWriteDelayInput.value);
-    }
-
-    if (persisted.usb && typeof persisted.usb === "object") {
-      elements.usbFiltersInput.value = String(persisted.usb.filtersInput ?? elements.usbFiltersInput.value);
-      elements.usbEncodingInput.value = String(persisted.usb.encoding ?? elements.usbEncodingInput.value ?? "utf-8");
-      elements.usbChunkSizeInput.value = String(persisted.usb.chunkSize ?? elements.usbChunkSizeInput.value);
+    if (persisted.printer && typeof persisted.printer === "object") {
+      state.printer.type = String(persisted.printer.type || state.printer.type);
+      state.printer.copies = Number.parseInt(persisted.printer.copies, 10) || state.printer.copies;
+      state.printer.printCount = Math.max(0, Number.parseInt(persisted.printer.printCount, 10) || state.printer.printCount);
+      const argumentsByType = persisted.printer.arguments ?? {};
+      for (const [type, printer] of Object.entries(printerRegistry)) {
+        if (argumentsByType[type] && typeof argumentsByType[type] === "object") {
+          printer.loadArguments({ ...printer.exportArguments(), ...argumentsByType[type] });
+        }
+      }
     }
 
     return true;
@@ -732,13 +736,6 @@ async function confirmAction({ title, message, confirmLabel = "确认", danger =
 
 function setWarnings(warnings) {
   state.warnings = warnings;
-  if (warnings.length > 0) {
-    elements.warningBadge.className = "warning-badge";
-    elements.warningBadge.textContent = `${warnings.length} 条提示`;
-  } else {
-    elements.warningBadge.className = "";
-    elements.warningBadge.textContent = "";
-  }
 }
 
 function applyWarnings(baseWarnings = []) {
@@ -1679,6 +1676,7 @@ function removeVariable(index) {
 }
 
 function renderVariablesPanel() {
+  elements.variablesPanelBadge.textContent = `${state.variables.length}个`;
   elements.variablesList.innerHTML = "";
 
   if (state.variables.length === 0) {
@@ -2134,6 +2132,7 @@ function renderCanvas() {
 
 function renderLayers() {
   elements.layerList.innerHTML = "";
+  elements.layerPanelBadge.textContent = `${state.document.nodes.length}个`;
 
   if (state.document.nodes.length === 0) {
     const empty = document.createElement("div");
@@ -2742,6 +2741,11 @@ function renderSettings() {
   if (elements.paperUnitInput && document.activeElement !== elements.paperUnitInput) {
     elements.paperUnitInput.value = measurementUnit;
   }
+
+  const widthLabel = measurementUnit === "mm" ? settings.widthValue : settings.width;
+  const heightLabel = measurementUnit === "mm" ? settings.heightValue : settings.height;
+  const unitLabel = measurementUnit === "mm" ? "mm" : "dot";
+  elements.paperPanelBadge.textContent = `${widthLabel}${unitLabel}×${heightLabel}${unitLabel}`;
 }
 
 function renderWarnings() {
@@ -2762,14 +2766,123 @@ function renderWarnings() {
   return panel;
 }
 
+function renderPrinterPanel() {
+  const printer = currentPrinter();
+  const printerLabel =
+    printer.type === "test"
+      ? "Test"
+      : `${printer.type.toUpperCase()}${printer.info_list.find((item) => item.title === "设备")?.value && printer.info_list.find((item) => item.title === "设备")?.value !== "未连接" ? `：${printer.info_list.find((item) => item.title === "设备")?.value}` : ""}`;
+  elements.printerPanelBadge.textContent = printerLabel;
+
+  if (document.activeElement !== elements.printerTypeInput) {
+    elements.printerTypeInput.value = state.printer.type;
+  }
+
+  elements.printerActionList.innerHTML = "";
+  for (const action of printer.action_list) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = action.title;
+    button.className =
+      action.variant === "filled"
+        ? "filled-button"
+        : action.variant === "tonal"
+          ? "tonal-button"
+          : action.variant === "text"
+            ? "text-button"
+            : "outlined-button";
+    button.addEventListener("click", async () => {
+      try {
+        await printer.on_action(action.key);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`${printer.title}${action.title}失败: ${message}`);
+      }
+    });
+    elements.printerActionList.append(button);
+  }
+
+  elements.printerInfoList.innerHTML = "";
+  for (const info of printer.info_list) {
+    const item = document.createElement("div");
+    item.className = "info-item";
+    const label = document.createElement("span");
+    label.textContent = info.title;
+    const value = document.createElement("strong");
+    value.textContent = String(info.value ?? "");
+    item.append(label, value);
+    elements.printerInfoList.append(item);
+  }
+
+  elements.printerArgumentList.innerHTML = "";
+  for (const argument of printer.argument_list) {
+    let field;
+    if (argument.type === "bool") {
+      field = buildCheckboxField({
+        label: argument.title,
+        checked: Boolean(argument.value),
+        onInput: (value) => printer.setArgument(argument.key, value),
+        eventName: "change",
+      });
+    } else if (argument.type === "select") {
+      field = buildSelectField({
+        label: argument.title,
+        value: String(argument.value),
+        options: argument.options ?? [],
+        onInput: (value) => printer.setArgument(argument.key, value),
+      });
+    } else if (argument.type === "number") {
+      field = buildNumberField({
+        label: argument.title,
+        value: argument.value,
+        min: argument.min ?? 0,
+        max: argument.max,
+        step: argument.step ?? 1,
+        onInput: (value) => printer.setArgument(argument.key, Number.parseFloat(value)),
+      });
+    } else if (argument.type === "textarea") {
+      field = document.createElement("label");
+      const caption = document.createElement("span");
+      caption.textContent = argument.title;
+      const textarea = document.createElement("textarea");
+      textarea.spellcheck = false;
+      textarea.value = String(argument.value ?? "");
+      if (argument.placeholder) {
+        textarea.placeholder = argument.placeholder;
+      }
+      textarea.addEventListener("change", () => printer.setArgument(argument.key, textarea.value));
+      field.append(caption, textarea);
+    } else {
+      field = buildTextField({
+        label: argument.title,
+        value: String(argument.value ?? ""),
+        onInput: (value) => printer.setArgument(argument.key, value),
+      });
+    }
+    elements.printerArgumentList.append(field);
+  }
+
+  const isTest = printer.type === "test";
+  elements.printerOutputBlock.hidden = !isTest;
+}
+
+function renderPrintPanel() {
+  const printer = currentPrinter();
+  if (document.activeElement !== elements.printCopiesInput) {
+    elements.printCopiesInput.value = String(state.printer.copies);
+  }
+  elements.printPanelCountBadge.textContent = String(state.printer.printCount);
+  elements.printButton.disabled = !printer.ready;
+}
+
 function render() {
   ensureSelection();
   renderSettings();
   renderCanvas();
   renderLayers();
   renderProperties();
-  renderBleStatus();
-  renderUsbStatus();
+  renderPrinterPanel();
+  renderPrintPanel();
   elements.zoomValue.textContent = `${Math.round(state.zoom * 100)}%`;
 
   const existingWarnings = elements.propertiesPanel.querySelector(".warning-list");
@@ -2917,6 +3030,22 @@ function wireEvents() {
     updatePaperUnit(target.value);
   });
 
+  elements.printerTypeInput.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) {
+      return;
+    }
+    state.printer.type = target.value;
+    render();
+    schedulePersistEditorState();
+  });
+
+  elements.printCopiesInput.addEventListener("change", () => {
+    state.printer.copies = Math.max(1, Number.parseInt(elements.printCopiesInput.value, 10) || 1);
+    renderPrintPanel();
+    schedulePersistEditorState();
+  });
+
   elements.zoomRange.addEventListener("input", () => {
     state.zoom = Number.parseFloat(elements.zoomRange.value);
     render();
@@ -2933,36 +3062,31 @@ function wireEvents() {
     clearAllElements();
   });
 
-  elements.bleConnectButton.addEventListener("click", () => {
-    connectBlePrinter();
-  });
+  elements.printButton.addEventListener("click", async () => {
+    if (state.sourceDirty) {
+      const applied = applySourceToDocument();
+      if (!applied) {
+        return;
+      }
+    }
 
-  elements.bleRefreshButton.addEventListener("click", () => {
-    refreshBleSelection();
-  });
-
-  elements.bleDisconnectButton.addEventListener("click", () => {
-    disconnectBlePrinter();
-  });
-
-  elements.blePrintButton.addEventListener("click", () => {
-    printCurrentLabelViaBle();
-  });
-
-  elements.usbConnectButton.addEventListener("click", () => {
-    connectUsbPrinter();
-  });
-
-  elements.usbRefreshButton.addEventListener("click", () => {
-    refreshUsbSelection();
-  });
-
-  elements.usbDisconnectButton.addEventListener("click", () => {
-    disconnectUsbPrinter();
-  });
-
-  elements.usbPrintButton.addEventListener("click", () => {
-    printCurrentLabelViaUsb();
+    const printer = currentPrinter();
+    const renderedDocument = renderDocumentWithVariables(state.document, state.variables);
+    const tspl = generateTsplSource(renderedDocument);
+    const copies = Math.max(1, Number.parseInt(elements.printCopiesInput.value, 10) || 1);
+    state.printer.copies = copies;
+    try {
+      for (let index = 0; index < copies; index += 1) {
+        await printer.print(tspl);
+      }
+      state.printer.printCount += copies;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`${printer.title}打印失败: ${message}`);
+    } finally {
+      schedulePersistEditorState();
+      render();
+    }
   });
 
   elements.addVariableButton.addEventListener("click", () => {
@@ -3023,22 +3147,6 @@ function wireEvents() {
     setStatus("源码有未应用修改");
     schedulePersistEditorState();
   });
-
-  for (const input of [
-    elements.bleNamePrefixInput,
-    elements.bleServiceInput,
-    elements.bleCharacteristicInput,
-    elements.bleEncodingInput,
-    elements.bleChunkSizeInput,
-    elements.bleWriteDelayInput,
-    elements.usbFiltersInput,
-    elements.usbEncodingInput,
-    elements.usbChunkSizeInput,
-  ]) {
-    input.addEventListener("input", () => {
-      schedulePersistEditorState();
-    });
-  }
 
   elements.palette.addEventListener("click", (event) => {
     const target = event.target.closest("[data-kind]");
@@ -3128,12 +3236,15 @@ function wireEvents() {
 
 async function initializeApp() {
   state.remoteConfig = readRemoteConfigEndpoints();
+  state.printersReady = true;
 
   elements.remoteLoadButton.hidden = !hasRemoteGetEndpoint();
   elements.remoteSaveButton.hidden = !hasRemoteSetEndpoint();
-
-  elements.bleServiceInput.value = DEFAULT_BLE_SERVICE_TEXT;
-  elements.usbFiltersInput.value = DEFAULT_USB_FILTERS_TEXT;
+  elements.printerTypeInput.innerHTML = `
+    <option value="ble">蓝牙打印机</option>
+    <option value="usb">USB 打印机</option>
+    <option value="test">测试打印机</option>
+  `;
   wireEvents();
 
   if (hasRemoteGetEndpoint()) {

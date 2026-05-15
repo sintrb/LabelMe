@@ -265,6 +265,10 @@ summary::-webkit-details-marker {
 .panel-title h2 {
   margin: 0;
   font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .panel-summary span,
@@ -355,6 +359,61 @@ summary::-webkit-details-marker {
   flex-direction: column;
   gap: 6px;
   font-size: 0.9rem;
+}
+
+.print-row {
+  grid-template-columns: auto auto;
+  align-items: end;
+  justify-content: start;
+  gap: 12px;
+}
+
+.print-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-direction: row;
+}
+
+.print-row label span {
+  white-space: nowrap;
+}
+
+.print-row input {
+  width: 84px;
+  min-width: 84px;
+}
+
+.compact-tool-row {
+  grid-template-columns: auto auto auto;
+  align-items: end;
+  justify-content: start;
+  gap: 10px;
+}
+
+.compact-tool-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-direction: row;
+}
+
+.compact-tool-row label span {
+  white-space: nowrap;
+}
+
+.compact-tool-row input {
+  width: 62px;
+  min-width: 62px;
+}
+
+.print-row button {
+  white-space: nowrap;
+  width: 100%;
+}
+
+.compact-tool-row button {
+  white-space: nowrap;
 }
 
 .subpanel {
@@ -483,6 +542,24 @@ summary::-webkit-details-marker {
   color: var(--md-sys-color-on-primary-container);
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.panel-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  font-size: 0.82rem;
+  font-weight: 700;
+  vertical-align: middle;
+  max-width: 180px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
 }
 
 .stage-scroller {
@@ -872,6 +949,10 @@ summary::-webkit-details-marker {
 
   .stage-palette-panel .palette {
     grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  }
+
+  .print-row {
+    grid-template-columns: 1fr;
   }
 
   .variable-header,
