@@ -1,27 +1,27 @@
 :root {
-  --md-sys-color-primary: #445e91;
+  --md-sys-color-primary: #0078d4;
   --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #d8e2ff;
-  --md-sys-color-on-primary-container: #001a43;
-  --md-sys-color-secondary: #565f71;
-  --md-sys-color-secondary-container: #dae2f9;
-  --md-sys-color-surface: #f8f9ff;
-  --md-sys-color-surface-container: #edf1fa;
-  --md-sys-color-surface-container-high: #e6eaf3;
-  --md-sys-color-surface-container-low: #f3f5fc;
-  --md-sys-color-surface-tint: #445e91;
-  --md-sys-color-outline: #73777f;
-  --md-sys-color-outline-variant: #c3c7cf;
-  --md-sys-color-on-surface: #191c20;
-  --md-sys-color-on-surface-variant: #44474e;
+  --md-sys-color-primary-container: #dceeff;
+  --md-sys-color-on-primary-container: #003a67;
+  --md-sys-color-secondary: #46505b;
+  --md-sys-color-secondary-container: #e4e9ef;
+  --md-sys-color-surface: #f2f2f2;
+  --md-sys-color-surface-container: #e7e7e7;
+  --md-sys-color-surface-container-high: #dddddd;
+  --md-sys-color-surface-container-low: #f7f7f7;
+  --md-sys-color-surface-tint: #0078d4;
+  --md-sys-color-outline: #8d8d8d;
+  --md-sys-color-outline-variant: #cfcfcf;
+  --md-sys-color-on-surface: #111111;
+  --md-sys-color-on-surface-variant: #5f5f5f;
   --md-sys-color-error: #ba1a1a;
   --md-sys-color-error-container: #ffdad6;
-  --md-elevation-1: 0 1px 3px rgba(12, 21, 38, 0.08), 0 1px 2px rgba(12, 21, 38, 0.12);
-  --md-elevation-2: 0 8px 24px rgba(12, 21, 38, 0.08), 0 2px 8px rgba(12, 21, 38, 0.08);
-  --md-radius-l: 14px;
-  --md-radius-m: 10px;
-  --md-radius-s: 8px;
-  --font-ui: "Google Sans", "Noto Sans SC", "PingFang SC", "Segoe UI", sans-serif;
+  --md-elevation-1: none;
+  --md-elevation-2: none;
+  --md-radius-l: 2px;
+  --md-radius-m: 2px;
+  --md-radius-s: 1px;
+  --font-ui: "Segoe UI Variable", "Segoe UI", "Noto Sans SC", "PingFang SC", sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", "Cascadia Code", monospace;
 }
 
@@ -40,8 +40,8 @@ body {
   font-family: var(--font-ui);
   color: var(--md-sys-color-on-surface);
   background:
-    radial-gradient(circle at top, rgba(68, 94, 145, 0.12), transparent 30%),
-    linear-gradient(180deg, #f6f7fd 0%, #eef2fb 100%);
+    linear-gradient(180deg, rgba(0, 120, 212, 0.08), transparent 120px),
+    #ececec;
   overflow: hidden;
 }
 
@@ -56,17 +56,17 @@ button {
   appearance: none;
   border: none;
   cursor: pointer;
-  border-radius: 10px;
-  padding: 0.58rem 0.86rem;
-  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, border-color 140ms ease;
+  border-radius: var(--md-radius-m);
+  padding: 0.48rem 0.72rem;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 button:hover {
-  transform: translateY(-1px);
+  filter: brightness(0.98);
 }
 
 button:active {
-  transform: translateY(0);
+  filter: brightness(0.94);
 }
 
 button:disabled {
@@ -117,11 +117,11 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: 10px;
+  border-radius: var(--md-radius-m);
   background: #ffffff;
   color: var(--md-sys-color-on-surface);
-  padding: 0.62rem 0.78rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding: 0.52rem 0.66rem;
+  box-shadow: none;
 }
 
 textarea {
@@ -142,10 +142,10 @@ summary::-webkit-details-marker {
 .app-shell {
   height: 100dvh;
   min-height: 100dvh;
-  padding: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -153,7 +153,7 @@ summary::-webkit-details-marker {
 .panel,
 .dialog-card {
   background: var(--md-sys-color-surface-container-low);
-  border: 1px solid rgba(195, 199, 207, 0.72);
+  border: 1px solid rgba(207, 207, 207, 0.92);
   border-radius: var(--md-radius-l);
   box-shadow: var(--md-elevation-1);
 }
@@ -162,48 +162,49 @@ summary::-webkit-details-marker {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 12px;
   flex: 0 0 auto;
 }
 
 .brand h1 {
   margin: 2px 0 1px;
-  font-size: clamp(1.18rem, 1.5vw, 1.55rem);
+  font-size: clamp(1.1rem, 1.3vw, 1.4rem);
   line-height: 1.1;
+  font-weight: 600;
 }
 
 .brand p {
   margin: 0;
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
 }
 
 .brand-kicker {
   display: inline-block;
   color: var(--md-sys-color-primary);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
 }
 
 .topbar-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
 }
 
 .action-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: 336px minmax(0, 1fr) 384px;
-  gap: 14px;
+  grid-template-columns: 292px minmax(0, 1fr) 340px;
+  gap: 8px;
   align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
@@ -221,7 +222,7 @@ summary::-webkit-details-marker {
   display: grid;
   grid-auto-rows: max-content;
   align-content: start;
-  gap: 12px;
+  gap: 8px;
   overflow: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
@@ -239,7 +240,7 @@ summary::-webkit-details-marker {
 .panel-title,
 .panel-summary,
 .panel-body {
-  padding: 14px 16px;
+  padding: 10px 12px;
 }
 
 .panel-summary {
@@ -247,7 +248,8 @@ summary::-webkit-details-marker {
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  gap: 12px;
+  gap: 8px;
+  background: linear-gradient(90deg, rgba(0, 120, 212, 0.08), rgba(0, 120, 212, 0));
 }
 
 .panel-summary::after {
@@ -264,11 +266,12 @@ summary::-webkit-details-marker {
 .panel-summary h2,
 .panel-title h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.92rem;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
+  font-weight: 600;
 }
 
 .panel-summary span,
@@ -321,16 +324,16 @@ summary::-webkit-details-marker {
 
 .panel-body {
   display: grid;
-  gap: 12px;
-  border-top: 1px solid rgba(195, 199, 207, 0.5);
-  background: rgba(255, 255, 255, 0.38);
+  gap: 10px;
+  border-top: 1px solid rgba(207, 207, 207, 0.92);
+  background: rgba(255, 255, 255, 0.64);
 }
 
 .panel-title {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .field-grid,
@@ -338,7 +341,7 @@ summary::-webkit-details-marker {
 .inline-row,
 .palette {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .field-grid,
@@ -357,15 +360,15 @@ summary::-webkit-details-marker {
 .panel-body > label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 0.9rem;
+  gap: 4px;
+  font-size: 0.84rem;
 }
 
 .print-row {
   grid-template-columns: auto auto;
   align-items: end;
   justify-content: start;
-  gap: 12px;
+  gap: 8px;
 }
 
 .print-row label {
@@ -388,7 +391,7 @@ summary::-webkit-details-marker {
   grid-template-columns: auto auto auto;
   align-items: end;
   justify-content: start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .compact-tool-row label {
@@ -419,20 +422,20 @@ summary::-webkit-details-marker {
 .subpanel {
   border: 1px solid rgba(195, 199, 207, 0.64);
   border-radius: var(--md-radius-m);
-  background: rgba(255, 255, 255, 0.54);
+  background: rgba(255, 255, 255, 0.82);
   padding: 0;
 }
 
 .subpanel summary {
-  padding: 11px 14px;
+  padding: 9px 12px;
   cursor: pointer;
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
 .subpanel > :not(summary) {
-  padding: 0 14px 14px;
+  padding: 0 12px 12px;
 }
 
 .palette {
@@ -440,31 +443,34 @@ summary::-webkit-details-marker {
 }
 
 .palette-item {
-  min-height: 58px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(216, 226, 255, 0.92), rgba(242, 245, 255, 0.95));
+  min-height: 46px;
+  border-radius: var(--md-radius-m);
+  background: #e8f2fb;
   color: var(--md-sys-color-on-primary-container);
   font-weight: 600;
+  border: 1px solid rgba(0, 120, 212, 0.18);
+  text-align: left;
 }
 
 .ble-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .info-item {
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--md-sys-color-surface-container);
+  padding: 8px 10px;
+  border-radius: var(--md-radius-m);
+  background: #ffffff;
+  border-left: 3px solid rgba(0, 120, 212, 0.6);
 }
 
 .info-item strong {
@@ -477,32 +483,32 @@ summary::-webkit-details-marker {
   margin: 0;
   padding-left: 1rem;
   display: grid;
-  gap: 6px;
-  font-size: 0.9rem;
+  gap: 4px;
+  font-size: 0.84rem;
 }
 
 .stage-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   overflow: hidden;
 }
 
 .stage-palette-panel {
   flex: 0 0 auto;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .stage-palette-panel .palette {
   grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .stage-palette-panel .palette-item {
-  min-height: 40px;
-  padding: 0.45rem 0.55rem;
-  border-radius: 14px;
-  font-size: 0.88rem;
+  min-height: 36px;
+  padding: 0.38rem 0.5rem;
+  border-radius: var(--md-radius-m);
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
@@ -510,24 +516,25 @@ summary::-webkit-details-marker {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 8px 10px;
 }
 
 .stage-toolbar-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: nowrap;
 }
 
 .stage-toolbar-group label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--md-sys-color-on-surface-variant);
   white-space: nowrap;
   flex-wrap: nowrap;
+  font-size: 0.82rem;
 }
 
 #zoomRange {
@@ -536,22 +543,22 @@ summary::-webkit-details-marker {
 }
 
 .zoom-pill {
-  padding: 6px 12px;
-  border-radius: 999px;
+  padding: 4px 8px;
+  border-radius: var(--md-radius-m);
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 
 .panel-count-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 999px;
+  padding: 2px 8px;
+  border-radius: var(--md-radius-m);
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 700;
   vertical-align: middle;
   max-width: 180px;
@@ -568,11 +575,12 @@ summary::-webkit-details-marker {
   overflow: auto;
   overscroll-behavior: contain;
   border-radius: var(--md-radius-l);
-  border: 1px solid rgba(195, 199, 207, 0.72);
+  border: 1px solid rgba(207, 207, 207, 0.92);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(239, 243, 251, 0.94)),
-    radial-gradient(circle at top, rgba(68, 94, 145, 0.08), transparent 30%);
-  padding: 18px;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 242, 242, 0.98)),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.02) 0, rgba(0, 0, 0, 0.02) 1px, transparent 1px, transparent 24px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.02) 0, rgba(0, 0, 0, 0.02) 1px, transparent 1px, transparent 24px);
+  padding: 12px;
 }
 
 .paper-stage {
@@ -590,7 +598,7 @@ summary::-webkit-details-marker {
 
 .paper-face {
   background: #ffffff;
-  box-shadow: 0 20px 36px rgba(11, 17, 32, 0.12);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
@@ -618,20 +626,21 @@ summary::-webkit-details-marker {
 
 .canvas-drop-hint {
   position: absolute;
-  inset: 18px;
+  inset: 12px;
   display: grid;
   place-items: center;
-  border-radius: 20px;
+  border-radius: var(--md-radius-m);
   border: 2px dashed rgba(68, 94, 145, 0.22);
   color: rgba(68, 71, 78, 0.7);
   pointer-events: none;
+  font-size: 0.84rem;
 }
 
 .canvas-item {
   position: absolute;
   user-select: none;
   cursor: grab;
-  border-radius: 10px;
+  border-radius: 0;
   transition: box-shadow 140ms ease, outline-color 140ms ease;
 }
 
@@ -693,7 +702,7 @@ summary::-webkit-details-marker {
 
 .shape-preview.bar {
   background: #111111;
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .shape-preview.box {
@@ -709,20 +718,20 @@ summary::-webkit-details-marker {
   background: rgba(25, 28, 32, 0.92);
   color: #ffffff;
   font-size: 0.76rem;
-  border-radius: 999px;
-  padding: 0.25rem 0.58rem;
+  border-radius: 0;
+  padding: 0.2rem 0.5rem;
   white-space: nowrap;
 }
 
 .layer-list,
 .properties-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .variable-list {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .variable-header,
@@ -735,20 +744,22 @@ summary::-webkit-details-marker {
 
 .variable-header {
   padding: 0 2px;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--md-sys-color-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .variable-row {
-  padding: 8px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(195, 199, 207, 0.6);
+  padding: 6px 8px;
+  border-radius: var(--md-radius-m);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(207, 207, 207, 0.92);
 }
 
 .variable-row input {
-  padding: 0.48rem 0.6rem;
+  padding: 0.42rem 0.54rem;
   min-width: 0;
 }
 
@@ -756,7 +767,7 @@ summary::-webkit-details-marker {
   align-self: stretch;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: var(--md-radius-m);
 }
 
 .variable-add-button {
@@ -766,17 +777,17 @@ summary::-webkit-details-marker {
 .layer-item {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(195, 199, 207, 0.72);
-  border-radius: 18px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(207, 207, 207, 0.92);
+  border-radius: var(--md-radius-m);
 }
 
 .layer-item.active {
-  border-color: rgba(68, 94, 145, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(68, 94, 145, 0.16);
+  border-color: rgba(0, 120, 212, 0.42);
+  box-shadow: inset 3px 0 0 rgba(0, 120, 212, 0.92);
 }
 
 .layer-main {
@@ -788,7 +799,7 @@ summary::-webkit-details-marker {
 }
 
 .layer-meta {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   margin-top: 2px;
 }
 
@@ -799,26 +810,27 @@ summary::-webkit-details-marker {
   padding: 0;
   display: inline-grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--md-radius-m);
 }
 
 .property-block {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .property-section {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(195, 199, 207, 0.6);
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--md-radius-m);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(207, 207, 207, 0.92);
 }
 
 .property-section h3 {
   margin: 0;
-  font-size: 0.94rem;
+  font-size: 0.86rem;
+  font-weight: 600;
 }
 
 .source-panel textarea,
@@ -827,10 +839,11 @@ summary::-webkit-details-marker {
 }
 
 .empty-state {
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.58);
+  padding: 10px;
+  border-radius: var(--md-radius-m);
+  background: rgba(255, 255, 255, 0.88);
   border: 1px dashed rgba(115, 119, 127, 0.52);
+  font-size: 0.84rem;
 }
 
 .warning-badge {
@@ -844,7 +857,7 @@ summary::-webkit-details-marker {
 .app-dialog {
   border: none;
   padding: 0;
-  border-radius: 28px;
+  border-radius: var(--md-radius-l);
   background: transparent;
   max-width: 360px;
 }
@@ -856,14 +869,14 @@ summary::-webkit-details-marker {
 
 .dialog-card {
   min-width: min(360px, calc(100vw - 32px));
-  padding: 18px;
+  padding: 14px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .dialog-header h2 {
   margin: 0 0 6px;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
 }
 
 .dialog-header p {
@@ -874,12 +887,12 @@ summary::-webkit-details-marker {
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 @media (max-width: 1440px) {
   .workspace {
-    grid-template-columns: 312px minmax(0, 1fr) 352px;
+    grid-template-columns: 276px minmax(0, 1fr) 316px;
   }
 }
 
@@ -930,7 +943,7 @@ summary::-webkit-details-marker {
 
 @media (max-width: 720px) {
   .app-shell {
-    padding: 10px;
+    padding: 8px;
   }
 
   .field-grid,
